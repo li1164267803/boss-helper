@@ -36,3 +36,6 @@ logapi.zhipin.*.pem
 .wxt
 
 /temp
+openspec/
+CLAUDE.md
+.claude/

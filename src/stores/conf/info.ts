@@ -64,7 +64,15 @@ export const formInfoData: FormInfoData = {
   },
   activityFilter: {
     label: '活跃度过滤',
-    'data-help': '打开后会自动过滤掉最近未活跃的Boss发布的工作。以免浪费每天的100次机会。',
+    'data-help':
+      '启用后,根据所选阈值过滤 HR 活跃度。低于阈值(例如选"今日活跃",则非"刚刚/今日活跃"的岗位)将被跳过,以免浪费每天的沟通额度。',
+    options: [
+      { value: 'just', label: '刚刚活跃' },
+      { value: 'today', label: '今日活跃' },
+      { value: 'within3d', label: '3 日内' },
+      { value: 'thisWeek', label: '本周内' },
+      { value: 'thisMonth', label: '本月内' },
+    ],
   },
   goldHunterFilter: {
     label: '猎头过滤',
@@ -348,7 +356,8 @@ export const defaultFormData: FormData = {
     value: false,
   },
   activityFilter: {
-    value: true,
+    enable: true,
+    value: 'thisWeek',
   },
   friendStatus: {
     value: true,

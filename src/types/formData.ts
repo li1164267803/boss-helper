@@ -31,7 +31,7 @@ export interface FormData {
   customGreeting: FormDataInput
   deliveryLimit: FormDataInputNumber
   greetingVariable: FormDataCheckbox
-  activityFilter: FormDataCheckbox
+  activityFilter: FormDataActivityFilter
   friendStatus: FormDataCheckbox
   sameCompanyFilter: FormDataCheckbox
   sameHrFilter: FormDataCheckbox
@@ -61,13 +61,25 @@ export interface FormData {
 export type FormInfoData = {
   [key in keyof Omit<
     FormData,
-    'config_level' | 'aiGreeting' | 'aiFiltering' | 'delay' | 'userId' | 'version' | 'amap'
+    | 'config_level'
+    | 'aiGreeting'
+    | 'aiFiltering'
+    | 'delay'
+    | 'userId'
+    | 'version'
+    | 'amap'
+    | 'activityFilter'
   >]: {
     label: string
     'data-help'?: string
   }
 } & {
   config_level: { options: Array<{ value: ConfigLevel; label: string }>; 'data-help'?: string }
+  activityFilter: {
+    label: string
+    'data-help'?: string
+    options: Array<{ value: ActivityThreshold; label: string }>
+  }
   aiGreeting: FormInfoAi
   aiFiltering: FormInfoAi
   delay: ConfInfoDelay
@@ -121,6 +133,13 @@ export interface FormDataInputNumber {
 
 export interface FormDataCheckbox {
   value: boolean
+}
+
+export type ActivityThreshold = 'just' | 'today' | 'within3d' | 'thisWeek' | 'thisMonth'
+
+export interface FormDataActivityFilter {
+  enable: boolean
+  value: ActivityThreshold
 }
 
 export interface FormDataAi {

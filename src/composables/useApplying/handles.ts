@@ -24,7 +24,9 @@ import {
   RepeatError,
   SalaryError,
 } from '@/types/deliverError'
+import type { ActivityThreshold } from '@/types/formData'
 import { getCurDay, getCurTime } from '@/utils'
+import { logger } from '@/utils/logger'
 
 import { SignedKeyLLM } from '../useModel/signedKey'
 import type { StepFactory } from './type'
@@ -38,12 +40,37 @@ import {
   sameHrKey,
 } from './utils'
 
+// 文案 → 数字 rank,数字越小越活跃。
+// 取自 Boss 自身在岗位列表/详情页中渲染的 activeTimeDesc 文案。
+// 如果遇到表中未列出的新文案,handler 会以 logger.warn 输出原始值,按需在此补全。
+const ACTIVITY_RANK: Record<string, number> = {
+  刚刚活跃: 0,
+  今日活跃: 1,
+  '3日内活跃': 2,
+  本周活跃: 3,
+  '2周内活跃': 4,
+  本月活跃: 5,
+  本季度活跃: 6,
+  半年内活跃: 7,
+  半年前活跃: 8,
+}
+
+// 用户阈值 → 数字 rank。岗位 rank 必须 <= 阈值 rank 才会放行。
+const THRESHOLD_RANK: Record<ActivityThreshold, number> = {
+  just: 0,
+  today: 1,
+  within3d: 2,
+  thisWeek: 3,
+  thisMonth: 5,
+}
+
+const DEFAULT_THRESHOLD: ActivityThreshold = 'thisWeek'
+
 export function handles() {
   const { chatMessages } = useChat()
   const model = useModel()
   const conf = useConf()
   const statistics = useStatistics()
-  const now = Date.now()
   const communicated: StepFactory = () => {
     return async ({ data }) => {
       if (data.contact) {
@@ -407,27 +434,31 @@ export function handles() {
   }
 
   const activityFilter: StepFactory = () => {
-    if (!conf.formData.activityFilter.value) {
+    if (!conf.formData.activityFilter.enable) {
       return
     }
+    const userValue = conf.formData.activityFilter.value
+    const limitRank = THRESHOLD_RANK[userValue] ?? THRESHOLD_RANK[DEFAULT_THRESHOLD]
     return async (_, ctx) => {
-      try {
-        const activeText = ctx.listData.card?.activeTimeDesc
-        const activeTime = ctx.listData.card?.brandComInfo?.activeTime
-        // 暂时先用文本匹配吧, activeTime备用(没确认是否准确)
-        if (!activeText && !activeTime) {
-          throw new ActivityError(`无活跃内容,如果全失败请反馈`)
-        } else if (!activeText && activeTime) {
-          if (now - activeTime >= 7 * 24 * 60 * 60 * 1000) {
-            throw new ActivityError(`不活跃 [${new Date(activeTime).toLocaleString()}]`)
-          }
-        } else if (!activeText) {
-          throw new ActivityError(`无活跃信息,如果全失败请反馈`)
-        } else if (activeText.includes('月') || activeText.includes('年'))
-          throw new ActivityError(`不活跃, [${activeText}]`)
-      } catch (e) {
+      const card = ctx.listData.card
+      // 兼容嵌套与扁平字段路径:bossInfo.activeTimeDesc 是详情接口的真源,
+      // card.activeTimeDesc 是 jobs.ts getCard() 中可能扁平化暴露的字段。
+      const activeText = card?.bossInfo?.activeTimeDesc ?? card?.activeTimeDesc
+      if (!activeText) {
+        // 数据缺失时保守放行,交给后续 step(如 AI 筛选)兜底,避免误杀。
+        logger.warn('无活跃度信息', ctx.listData.encryptJobId)
+        return
+      }
+      const rank = ACTIVITY_RANK[activeText]
+      if (rank == null) {
+        // 未登记的文案视为最陈旧,同时输出日志便于补全 ACTIVITY_RANK 表。
+        logger.warn('未识别的活跃度文案', activeText, ctx.listData.encryptJobId)
         statistics.todayData.activityFilter++
-        throw new ActivityError(errorHandle(e))
+        throw new ActivityError(`不活跃: ${activeText}`)
+      }
+      if (rank > limitRank) {
+        statistics.todayData.activityFilter++
+        throw new ActivityError(`不活跃: ${activeText}`)
       }
     }
   }

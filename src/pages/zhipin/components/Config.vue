@@ -178,6 +178,25 @@ function syncSalaryRange() {
           </form-item>
           <form-item
             v-if="conf.config_level.intermediate"
+            v-bind="formInfoData.activityFilter"
+            v-model:enable="conf.formData.activityFilter.enable"
+            :disabled="deliverLock"
+          >
+            <ElSelect
+              v-model="conf.formData.activityFilter.value"
+              :disabled="!conf.formData.activityFilter.enable || deliverLock"
+              style="width: 120px"
+            >
+              <ElOption
+                v-for="opt in formInfoData.activityFilter.options"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </ElSelect>
+          </form-item>
+          <form-item
+            v-if="conf.config_level.intermediate"
             v-bind="formInfoData.jobAddress"
             v-model:enable="conf.formData.jobAddress.enable"
             :disabled="deliverLock"
@@ -284,12 +303,6 @@ function syncSalaryRange() {
             v-if="conf.config_level.expert"
             v-bind="formInfoData.greetingVariable"
             v-model="conf.formData.greetingVariable.value"
-            border
-          />
-          <ElCheckbox
-            v-if="conf.config_level.intermediate"
-            v-bind="formInfoData.activityFilter"
-            v-model="conf.formData.activityFilter.value"
             border
           />
           <ElCheckbox
